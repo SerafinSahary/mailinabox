@@ -29,5 +29,7 @@ Vagrant.configure("2") do |config|
     # Start the setup script.
     cd /vagrant
     setup/start.sh
+
+    apt install -y mc
 SH
 end
