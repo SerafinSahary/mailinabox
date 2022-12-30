@@ -14,6 +14,13 @@ import utils
 from email_validator import validate_email as validate_email_, EmailNotValidError
 import idna
 
+import secrets
+import passlib.hash
+
+SALT_LEN = 8  # length of the salt for password hashing, to be used by passlib
+SHA512_CRYPT_PREFIX = '{SHA512-CRYPT}'
+
+
 def validate_email(email, mode=None):
 	# Checks that an email address is syntactically valid. Returns True/False.
 	# An email address may contain ASCII characters only because Dovecot's
@@ -334,7 +341,9 @@ def hash_password(pw):
 	# Turn the plain password into a Dovecot-format hashed password, meaning
 	# something like "{SCHEME}hashedpassworddata".
 	# http://wiki2.dovecot.org/Authentication/PasswordSchemes
-	return utils.shell('check_output', ["/usr/bin/doveadm", "pw", "-s", "SHA512-CRYPT", "-p", pw]).strip()
+	crypter = passlib.hash.sha512_crypt(salt=secrets.token_hex(SALT_LEN), rounds=5000)
+	hashed_password = f"{SHA512_CRYPT_PREFIX}{crypter.hash(pw)}"
+	return hashed_password
 
 def get_mail_password(email, env):
 	# Gets the hashed password for a user. Passwords are stored in Dovecot's

@@ -3,8 +3,11 @@ from datetime import timedelta
 
 from expiringdict import ExpiringDict
 
+import secrets
+import passlib.hash
+
 import utils
-from mailconfig import get_mail_password, get_mail_user_privileges
+from mailconfig import get_mail_password, get_mail_user_privileges, SALT_LEN, SHA512_CRYPT_PREFIX
 from mfa import get_hash_mfa_state, validate_auth_mfa
 
 DEFAULT_KEY_PATH   = '/var/lib/mailinabox/api.key'
@@ -103,15 +106,13 @@ class AuthService:
 			# same exception as if a password fails so we don't easily reveal
 			# if an email address is valid.
 			pw_hash = get_mail_password(email, env)
-
-			# Use 'doveadm pw' to check credentials. doveadm will return
-			# a non-zero exit status if the credentials are no good,
-			# and check_call will raise an exception in that case.
-			utils.shell('check_call', [
-				"/usr/bin/doveadm", "pw",
-				"-p", pw,
-				"-t", pw_hash,
-				])
+			if not pw_hash:
+				raise Exception
+			
+			crypter = passlib.hash.sha512_crypt(salt=secrets.token_hex(SALT_LEN), rounds=5000)
+			
+			if not crypter.verify(pw, pw_hash.removeprefix(SHA512_CRYPT_PREFIX)):
+				raise Exception
 		except:
 			# Login failed.
 			raise ValueError("Incorrect email address or password.")
