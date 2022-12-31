@@ -30,6 +30,6 @@ Vagrant.configure("2") do |config|
     cd /vagrant
     setup/start.sh
 
-    apt install -y mc
+    apt install -y mc sendemail fzf
 SH
 end
