@@ -20,7 +20,7 @@ db_path=$STORAGE_ROOT/mail/users.sqlite
 # Create an empty database if it doesn't yet exist.
 if [ ! -f $db_path ]; then
 	echo Creating new user database: $db_path;
-	sqlite3 $db_path ".read setup/db_structure.sql"
+	sqlite3 $db_path ".read setup/db_structure_users.sql"
 fi
 
 # ### User Authentication
