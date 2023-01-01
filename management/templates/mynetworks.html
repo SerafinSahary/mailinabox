@@ -1,4 +1,159 @@
 <h2>MyNetworks management</h2>
 
-<p>MyNetworks management console.</p>
+<style>
+    #mynetworks_table .actions { margin-top: .33em; font-size: 95%; }
+</style>
 
+<h3>Add mynetworks entry</h3>
+
+<p>Add an entry to mynetworks table.</p>
+
+<form class="form-inline" role="form" onsubmit="return mynetwork_add(); return false;">
+  <div class="form-group">
+    <label class="sr-only" for="cidr">CIDR</label>
+    <input type="text" class="form-control" id="cidr" placeholder="cidr">
+  </div>
+  <div class="form-group">
+    <label class="sr-only" for="description">Description</label>
+    <input type="text" class="form-control" id="description" placeholder="description">
+  </div>
+  <button type="submit" class="btn btn-primary">Add MyNetwork</button>
+</form>
+<ul style="margin-top: 1em; padding-left: 1.5em; font-size: 90%;">
+  <li>MyNetwork addresses MUST be in form if valid CIDR address, i.e. 127.2.4.6/8</li>
+  <li>addresses NUST NOT overlap</li>
+</ul>
+
+<h3>Existing mynetworks entries</h3>
+<table id="mynetworks_table" class="table" style="width: auto">
+  <thead>
+    <tr>
+      <th width="30%">CIDR</th>
+      <th>Description</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+<div style="display: none">
+  <table>
+    <tr id="mynetworks-template">
+      <td class='cidr'>
+      </td>
+      <td class='description'>
+      </td>
+      <td class='actions'>
+          <a href="#" onclick="mynetwork_remove(this); return false;" class='if_active' title="Remove">
+            Remove
+          </a>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<h3>MyNetworks API (advanced)</h3>
+
+<p>Use your box&rsquo;s mynetworks API to add/remove enties from the command-line or custom services you build.</p>
+
+<p>Usage:</p>
+
+<pre>curl -X <b>VERB</b> [-d "<b>parameters</b>"] --user {email}:{password} https://{{hostname}}/admin/mynetworks[<b>action</b>]</pre>
+
+<p>Brackets denote an optional argument. Please note that the POST body <code>parameters</code> must be URL-encoded.</p>
+
+<p>The email and password given to the <code>--user</code> option must be an administrative user on this system.</p>
+
+<h4 style="margin-bottom: 0">Verbs</h4>
+
+<table class="table" style="margin-top: .5em">
+<thead><th>Verb</th> <th>Action</th><th></th></thead>
+<tr><td>GET</td><td><i>(none)</i></td> <td>Returns a list of existing mynetworks items. Adding <code>?format=json</code> to the URL will give JSON-encoded results.</td></tr>
+<tr><td>POST</td><td>/add</td> <td>Adds a new mynetworks item. Required POST-body parameters are <code>cidr</code> and <code>description</code>.</td></tr>
+<tr><td>POST</td><td>/remove</td> <td>Removes an existing mynetworks item. Required POST-body parameter is <code>cidr</code>.</td></tr>
+</table>
+
+<h4>Examples:</h4>
+
+<p>Try these examples. For simplicity the examples omit the <code>--user me@mydomain.com:yourpassword</code> command line argument which you must fill in with your administrative email address and password.</p>
+
+<pre># Gives a JSON-encoded list of all mynetworks items
+curl -X GET https://{{hostname}}/admin/mynetworks?format=json
+
+# Adds a new mynetworks item
+curl -X POST -d "cidr=192.168.55.48/29" -d "description=test" https://{{hostname}}/admin/mynetworks/add
+
+# Removes mynetworks item
+curl -X POST -d "cidr=192.168.55.48/29" https://{{hostname}}/admin/mynetworks/remove
+</pre>
+
+<script>
+  function show_mynetworks() {
+    $('#mynetworks_table tbody').html("<tr><td colspan='3' class='text-muted'>Loading...</td></tr>")
+    api(
+      "/mynetworks",
+      "GET",
+      { format: 'json' },
+      function(r) {
+        $('#mynetworks_table tbody').html("");
+        for (var i = 0; i < r.length; i++) {
+          var n = $("#mynetworks-template").clone();
+          n.attr('id', '');
+          $('#mynetworks_table tbody').append(n);
+  
+          n.attr('data-cidr', r[i].cidr);
+          n.find('.cidr').text(r[i].cidr);
+          n.find('.description').text(r[i].description);
+        }
+      })
+  }
+  
+  function mynetwork_remove(elem) {
+    var cidr = $(elem).parents('tr').attr('data-cidr');
+  
+    show_modal_confirm(
+      "Remove MyNetwork",
+      $("<p>Are you sure you want to remove <b>" + cidr + "</b>?</p>"),
+      "Remove",
+      function() {
+        api(
+          "/mynetworks/remove",
+          "POST",
+          {
+            cidr: cidr
+          },
+          function(r) {
+            // Responses are multiple lines of pre-formatted text.
+            show_modal_error("Remove MyNetwork", $("<pre/>").text(r));
+            show_mynetworks();
+          },
+          function(r) {
+            show_modal_error("Remove MyNetwork", r);
+          });
+      });
+  }
+
+  function mynetwork_add() {
+  var cidr = $("#cidr").val();
+  var description = $("#description").val();
+  api(
+    "/mynetworks/add",
+    "POST",
+    {
+      cidr: cidr,
+      description: description
+    },
+    function(r) {
+      // Responses are multiple lines of pre-formatted text.
+      show_modal_error("Add MyNetwork", $("<pre/>").text(r));
+      show_mynetworks()
+    },
+    function(r) {
+      show_modal_error("Add MyNetwork", r);
+    });
+  return false;
+}
+
+</script>
+  
