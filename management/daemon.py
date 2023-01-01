@@ -268,8 +268,9 @@ def mail_domains():
 def mynetworks():
 	mynetworks = get_mynetworks(env)
 	cidrs = {item['cidr']: item['description'] for item in mynetworks}
+	mynetworks_short = [{'cidr': key, 'description': cidrs[key]} for key in cidrs]
 	if request.args.get("format", "") == "json":
-		return json_response(cidrs)
+		return json_response(mynetworks_short)
 	else:
 		return "\n".join([f"{key}\t{cidrs[key]}" for key in cidrs])
 

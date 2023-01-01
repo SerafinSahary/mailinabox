@@ -29,7 +29,7 @@ def open_database(env, with_connection=False):
 def get_mynetworks(env):
 	c = open_database(env)
 	c.row_factory = sqlite3.Row
-	c.execute('SELECT * FROM mynetworks')
+	c.execute('SELECT * FROM mynetworks ORDER BY cidr, id')
 	mynetworks = []
 	for row in c.fetchall():
 		mynetworks.append({item: row[item] for item in row.keys()})
