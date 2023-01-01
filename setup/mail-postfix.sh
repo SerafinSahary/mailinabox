@@ -58,7 +58,7 @@ tools/editconf.py /etc/postfix/main.cf \
 	smtp_bind_address=$PRIVATE_IP \
 	smtp_bind_address6=$PRIVATE_IPV6 \
 	myhostname=$PRIMARY_HOSTNAME\
-	smtpd_banner="\$myhostname ESMTP Hi, I'm a Mail-in-a-Box (Ubuntu/Postfix; see https://mailinabox.email/)" \
+	smtpd_banner="\$myhostname ESMTP N0Nam3, vNexT" \
 	mydestination=localhost
 
 # Tweak some queue settings:
@@ -129,7 +129,7 @@ tools/editconf.py /etc/postfix/main.cf \
 	smtpd_tls_cert_file=$STORAGE_ROOT/ssl/ssl_certificate.pem \
 	smtpd_tls_key_file=$STORAGE_ROOT/ssl/ssl_private_key.pem \
 	smtpd_tls_dh1024_param_file=$STORAGE_ROOT/ssl/dh2048.pem \
-	smtpd_tls_protocols="!SSLv2,!SSLv3" \
+	smtpd_tls_protocols="!SSLv2,!SSLv3,!TLSv1,!TLSv1.1" \
 	smtpd_tls_ciphers=medium \
 	tls_medium_cipherlist=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA \
 	smtpd_tls_exclude_ciphers=aNULL,RC4 \
@@ -154,6 +154,25 @@ tools/editconf.py /etc/postfix/main.cf \
 # * `reject_unauth_destination`: No one else. (Permits mail whose destination is local and rejects other mail.)
 tools/editconf.py /etc/postfix/main.cf \
 	smtpd_relay_restrictions=permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
+
+# mynetworks managed from sqlite dbi, required to enable mynetworks management from API/GUI:
+
+# The database for mynetworks managemnet
+db_path=$STORAGE_ROOT/mynetworks.sqlite
+
+# Create an empty database if it doesn't yet exist.
+if [ ! -f "$db_path" ]; then
+	echo "Creating mynetworks database: $db_path;"
+	sqlite3 "$db_path" ".read setup/db_structure_mynetworks.sql"
+fi
+
+cat > /etc/postfix/mynetworks-db.cf << EOF;
+dbpath=$db_path
+query = SELECT 1 FROM mynetworks WHERE '%s' == addr_in_range
+EOF
+
+tools/editconf.py /etc/postfix/main.cf \
+	"mynetworks=127.0.0.0/8,[::ffff:127.0.0.0]/104,[::1]/128,sqlite:/etc/postfix/mynetworks-db.cf"
 
 
 # ### DANE
