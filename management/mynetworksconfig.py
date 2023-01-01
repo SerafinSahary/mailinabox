@@ -12,6 +12,7 @@ import json
 import sqlite3
 import sys
 
+from ipaddress import ip_network, ip_address, AddressValueError, NetmaskValueError
 from pprint import pprint
 
 import utils
@@ -35,6 +36,48 @@ def get_mynetworks(env):
 	return mynetworks
 
 
+def validate_cidr(cidr: str):
+	try:
+		ip_network(cidr, strict=True)
+	except (AddressValueError, NetmaskValueError, ValueError) as ex:
+		return False
+	
+	return True
+
+
+def add_mynetwork(env, cidr, description):
+	if not validate_cidr(cidr):
+		raise ValueError
+
+	conn, c = open_database(env, with_connection=True)
+	c.execute('SELECT DISTINCT cidr FROM mynetworks')
+
+	mynetwork_to_add = ip_network(cidr, strict=True)
+	
+	for item in c.fetchall():
+		if mynetwork_to_add.overlaps(ip_network(item[0])) or \
+		   ip_network(item[0]).overlaps(mynetwork_to_add):
+			raise ValueError
+	
+	records_to_add = [(cidr, str(item), description) for item in mynetwork_to_add.hosts()]
+
+	c.executemany(
+		'INSERT INTO mynetworks(cidr, addr_in_range, description) VALUES(?, ?, ?)',
+		records_to_add
+	)
+
+	conn.commit()
+
+
+def remove_mynetwork(env, cidr):
+	if not validate_cidr(cidr):
+		raise ValueError
+
+	conn, c = open_database(env, with_connection=True)
+	c.execute('DELETE FROM mynetworks WHERE cidr = ?', (cidr, ))
+	conn.commit()
+
+
 def list_func(args):
 	from utils import load_environment
 
@@ -49,6 +92,18 @@ def list_func(args):
 		pprint(mynetworks)
 
 
+def add_func(args):
+	from utils import load_environment
+
+	add_mynetwork(utils.load_environment(), args.cidr, args.descr)
+
+
+def remove_func(args):
+	from utils import load_environment
+
+	remove_mynetwork(utils.load_environment(), args.cidr)
+
+
 def argparser():
 	parser = argparse.ArgumentParser()
 
@@ -59,10 +114,19 @@ def argparser():
 	list_parser.add_argument('-c', '--cidr', action='store_true', help='output in JSON format, but unique CIRDs and descriptions')
 	list_parser.set_defaults(func=list_func)
 
+	add_parser = subparsers.add_parser('add', help='add mynetworks entry')
+	add_parser.add_argument('cidr', help='cidr address of the network to add')
+	add_parser.add_argument('descr', help='description of the network to add')
+	add_parser.set_defaults(func=add_func)
+
+	remove_parser = subparsers.add_parser('remove', help='remove mynetworks entry')
+	remove_parser.add_argument('cidr', help='cidr address of the network to remove')
+	remove_parser.set_defaults(func=remove_func)
+
 	return parser
 
 
 if __name__ == "__main__":
-
 	args = argparser().parse_args()
-	args.func(args)	
+	if hasattr(args, 'func'):
+		args.func(args)

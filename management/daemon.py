@@ -21,6 +21,7 @@ import auth, utils
 from mailconfig import get_mail_users, get_mail_users_ex, get_admins, add_mail_user, set_mail_password, remove_mail_user
 from mailconfig import get_mail_user_privileges, add_remove_mail_user_privilege
 from mailconfig import get_mail_aliases, get_mail_aliases_ex, get_mail_domains, add_mail_alias, remove_mail_alias
+from mynetworksconfig import get_mynetworks, add_mynetwork, remove_mynetwork
 from mfa import get_public_mfa_state, provision_totp, validate_totp_secret, enable_mfa, disable_mfa
 
 env = utils.load_environment()
@@ -259,6 +260,40 @@ def mail_aliases_remove():
 @authorized_personnel_only
 def mail_domains():
     return "".join(x+"\n" for x in get_mail_domains(env))
+
+# MYNETWORKS
+
+@app.route('/mynetworks')
+@authorized_personnel_only
+def mynetworks():
+	mynetworks = get_mynetworks(env)
+	cidrs = {item['cidr']: item['description'] for item in mynetworks}
+	if request.args.get("format", "") == "json":
+		return json_response(cidrs)
+	else:
+		return "\n".join([f"{key}\t{cidrs[key]}" for key in cidrs])
+
+@app.route('/mynetworks/add', methods=['POST'])
+@authorized_personnel_only
+def mynetworks_add():
+	try:
+		add_mynetwork(env, 
+					  request.form.get('cidr', ''),
+					  request.form.get('description', ''))
+	except ValueError as ex:
+		return ("Wrong data", 400)
+	
+	return ("Success", 200)
+
+@app.route('/mynetworks/remove', methods=['POST'])
+@authorized_personnel_only
+def mynetworks_remove():
+	try:
+		remove_mynetwork(env, request.form.get('cidr', ''))
+	except ValueError as ex:
+		return ("Wrong data", 400)
+	
+	return ("Success", 200)
 
 # DNS
 
